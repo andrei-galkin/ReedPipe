@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ReedPipe}",
+            "name": "Debug Proxy",
+            "target": "Proxy",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Proxy"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ReedPipe}",
+            "name": "Release Proxy",
+            "target": "Proxy",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Proxy"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ReedPipe}",
+            "name": "Debug Frontend",
+            "target": "Frontend",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Frontend"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ReedPipe}",
+            "name": "Release Frontend",
+            "target": "Frontend",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Frontend"
+        }
+    ]
+}
