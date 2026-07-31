@@ -111,7 +111,7 @@ swift package --swift-sdk <your-sdk-id-from-above> js --use-cdn --product Fronte
 
 The second command uses JavaScriptKit's `PackageToJS` plugin to produce a ready-to-serve bundle at `.build/plugins/PackageToJS/outputs/Package/` — `Public/index.html` already points at this path, so no manual file copying is needed.
 
-> ⚠️ Don't run plain `swift build` or `swift test` with no target/filter on a machine that only has the native toolchain installed — it'll try to build the Wasm-only `Frontend` target too and fail. Always scope commands with `--target`/`--filter` until the Wasm SDK is set up.
+> Don't run plain `swift build` or `swift test` with no target/filter on a machine that only has the native toolchain installed — it'll try to build the Wasm-only `Frontend` target too and fail. Always scope commands with `--target`/`--filter` until the Wasm SDK is set up.
 
 ## Running
 
