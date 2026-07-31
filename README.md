@@ -161,19 +161,6 @@ When you're done, switch the proxy setting back to "Use system proxy settings" �
 - **IPv6 literal CONNECT targets** (e.g. `[::1]:443`) aren't parsed correctly — low priority since browsers overwhelmingly send hostnames.
 - **The CA's private key file (`~/.reedpipe/ReedPipeRootCA.key.pem`) can sign a trusted certificate for any domain.** Never share it, and treat trusting the CA the same way you'd treat installing any other MITM tool's root certificate.
 
-## Status vs. the original milestone plan
-
-| Milestone | Status |
-|---|---|
-| Weeks 1–2: bare SwiftNIO proxy (plain HTTP) | ✅ Done |
-| Week 3: WebSocket bridge | ✅ Done |
-| Weeks 4–5: Wasm frontend, frame decoding | ✅ Done |
-| Week 6: session list, JSON pretty-printing | ✅ Done |
-| Week 7: search/filter, JWT decoding, timeline | Not started |
-| Phase 2 (stretch goal): HTTPS interception | ✅ Working — see limitations above |
-
-Other open items: fuller `CoreTests` coverage (body-encoding edge cases were dropped at one point and not yet restored), and a connect/read timeout on the proxy's outbound connections (a dead origin server can currently hang a request indefinitely).
-
 ## Running the tests
 
 ```bash
