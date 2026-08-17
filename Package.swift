@@ -16,7 +16,13 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
         .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
-        .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.19.0")
+        .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.19.0"),
+        // JSS does not publish version tags yet, so pin an audited revision
+        // rather than following a moving branch.
+        .package(
+            url: "https://github.com/rarestype/jss.git",
+            revision: "9a17c945500acfdbbc0057b687a69ce1fd865f4e"
+        )
     ],
     targets: [
         // Shared Codable models, no dependencies — usable from both the
@@ -44,7 +50,8 @@ let package = Package(
             name: "Frontend",
             dependencies: [
                 "Core",
-                .product(name: "JavaScriptKit", package: "JavaScriptKit")
+                .product(name: "JavaScriptKit", package: "JavaScriptKit"),
+                .product(name: "JavaScript", package: "jss")
             ],
             path: "Sources/Frontend",
             resources: [

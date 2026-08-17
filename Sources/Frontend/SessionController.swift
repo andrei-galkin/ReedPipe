@@ -1,4 +1,5 @@
 import JavaScriptKit
+import JavaScript
 import Core
 
 /// Owns the WebSocket connection, the in-memory session store, and the DOM
@@ -35,7 +36,7 @@ final class SessionController {
     private func handleIncoming(text: String) {
         do {
             let json = JSObject.global.JSON.parse(text)
-            let frame = try JSValueDecoder().decode(TrafficFrame.self, from: json)
+            let frame = try TrafficFrame.load(from: json)
             if store.upsert(frame) {
                 renderer.appendRow(for: frame)
             } else {
