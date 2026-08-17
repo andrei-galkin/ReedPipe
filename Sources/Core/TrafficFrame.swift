@@ -1,7 +1,7 @@
 /// One full request/response exchange captured by the proxy. This is the unit
 /// serialized to JSON and pushed to the browser frontend over the WebSocket
 /// bridge (Week 3), and decoded back into this same type on the Frontend side.
-public struct TrafficFrame: Codable, Equatable {
+public struct TrafficFrame: Equatable {
     public let id: String
     /// ISO-8601 timestamp. Stored in its wire representation so Core remains
     /// Foundation-free when linked into the WebAssembly frontend.
@@ -26,3 +26,7 @@ public struct TrafficFrame: Codable, Equatable {
         self.error = error
     }
 }
+
+#if !hasFeature(Embedded)
+extension TrafficFrame: Codable {}
+#endif

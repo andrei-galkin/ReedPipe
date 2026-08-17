@@ -1,4 +1,4 @@
-public struct CapturedRequest: Codable, Equatable {
+public struct CapturedRequest: Equatable {
     public let method: String
     public let url: String
     public let headers: [CapturedHeader]
@@ -14,3 +14,7 @@ public struct CapturedRequest: Codable, Equatable {
         self.bodyIsBase64 = bodyIsBase64
     }
 }
+
+#if !hasFeature(Embedded)
+extension CapturedRequest: Codable {}
+#endif

@@ -1,4 +1,4 @@
-public struct CapturedResponse: Codable, Equatable {
+public struct CapturedResponse: Equatable {
     public let statusCode: Int
     public let reason: String
     public let headers: [CapturedHeader]
@@ -13,3 +13,7 @@ public struct CapturedResponse: Codable, Equatable {
         self.bodyIsBase64 = bodyIsBase64
     }
 }
+
+#if !hasFeature(Embedded)
+extension CapturedResponse: Codable {}
+#endif
