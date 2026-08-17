@@ -3,7 +3,7 @@ import XCTest
 
 final class TrafficFrameTests: XCTestCase {
     func testFrameCodingRoundTripUsesISO8601Dates() throws {
-        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
+        let timestamp = "2023-11-14T22:13:20Z"
         let request = CapturedRequest(
             method: "GET",
             url: "https://example.com",
@@ -26,9 +26,9 @@ final class TrafficFrameTests: XCTestCase {
             durationMs: 12.5
         )
 
-        let encoder = FrameCoding.makeEncoder()
+        let encoder = JSONEncoder()
         let data = try encoder.encode(frame)
-        let decoder = FrameCoding.makeDecoder()
+        let decoder = JSONDecoder()
         let decoded = try decoder.decode(TrafficFrame.self, from: data)
 
         XCTAssertEqual(decoded, frame)

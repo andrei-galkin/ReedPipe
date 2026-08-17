@@ -1,4 +1,3 @@
-import Foundation
 import JavaScriptKit
 import Core
 
@@ -82,6 +81,7 @@ final class SessionListRenderer {
 
     private func durationText(for frame: TrafficFrame) -> String {
         guard let ms = frame.durationMs else { return "—" }
-        return String(format: "%.1f", ms)
+        let tenths = Int((ms * 10).rounded())
+        return "\(tenths / 10).\(abs(tenths % 10))"
     }
 }

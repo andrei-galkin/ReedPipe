@@ -95,7 +95,7 @@ final class TunneledHTTPHandler: ChannelInboundHandler {
 
             let frame = TrafficFrame(
                 id: UUID().uuidString,
-                timestamp: startTime,
+                timestamp: FrameCoding.timestamp(startTime),
                 request: capturedRequest,
                 response: nil,
                 durationMs: Date().timeIntervalSince(startTime) * 1000,

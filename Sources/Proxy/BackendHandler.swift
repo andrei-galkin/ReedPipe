@@ -67,7 +67,7 @@ final class BackendHandler: ChannelInboundHandler {
 
         let frame = TrafficFrame(
             id: UUID().uuidString,
-            timestamp: startTime,
+            timestamp: FrameCoding.timestamp(startTime),
             request: capturedRequest,
             response: nil,
             durationMs: Date().timeIntervalSince(startTime) * 1000,
@@ -128,7 +128,7 @@ final class BackendHandler: ChannelInboundHandler {
 
         let frame = TrafficFrame(
             id: UUID().uuidString,
-            timestamp: startTime,
+            timestamp: FrameCoding.timestamp(startTime),
             request: capturedRequest,
             response: capturedResponse,
             durationMs: Date().timeIntervalSince(startTime) * 1000

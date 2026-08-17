@@ -1,5 +1,3 @@
-import Foundation
-
 public struct CapturedResponse: Codable, Equatable {
     public let statusCode: Int
     public let reason: String

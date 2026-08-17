@@ -1,4 +1,3 @@
-import Foundation
 import JavaScriptKit
 import Core
 
@@ -34,9 +33,9 @@ final class SessionController {
     }
 
     private func handleIncoming(text: String) {
-        let data = Data(text.utf8)
         do {
-            let frame = try FrameCoding.makeDecoder().decode(TrafficFrame.self, from: data)
+            let json = JSObject.global.JSON.parse(text)
+            let frame = try JSValueDecoder().decode(TrafficFrame.self, from: json)
             if store.upsert(frame) {
                 renderer.appendRow(for: frame)
             } else {

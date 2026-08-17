@@ -1,5 +1,3 @@
-import Foundation
-
 public struct CapturedRequest: Codable, Equatable {
     public let method: String
     public let url: String

@@ -21,14 +21,14 @@ final class FrameTests: XCTestCase {
         )
         let frame = TrafficFrame(
             id: "test-id",
-            timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+            timestamp: "2023-11-14T22:13:20Z",
             request: request,
             response: response,
             durationMs: 12.5
         )
 
-        let data = try FrameCoding.makeEncoder().encode(frame)
-        let decoded = try FrameCoding.makeDecoder().decode(TrafficFrame.self, from: data)
+        let data = try JSONEncoder().encode(frame)
+        let decoded = try JSONDecoder().decode(TrafficFrame.self, from: data)
 
         XCTAssertEqual(decoded, frame)
     }
@@ -37,10 +37,10 @@ final class FrameTests: XCTestCase {
         // Models the moment a request has been captured but the origin
         // server hasn't responded yet.
         let request = CapturedRequest(method: "POST", url: "http://example.com/", headers: [], body: nil, bodyIsBase64: false)
-        let frame = TrafficFrame(id: "in-flight", timestamp: Date(), request: request, response: nil, durationMs: nil)
+        let frame = TrafficFrame(id: "in-flight", timestamp: "2023-11-14T22:13:20Z", request: request, response: nil, durationMs: nil)
 
-        let data = try FrameCoding.makeEncoder().encode(frame)
-        let decoded = try FrameCoding.makeDecoder().decode(TrafficFrame.self, from: data)
+        let data = try JSONEncoder().encode(frame)
+        let decoded = try JSONDecoder().decode(TrafficFrame.self, from: data)
 
         XCTAssertNil(decoded.response)
         XCTAssertNil(decoded.durationMs)

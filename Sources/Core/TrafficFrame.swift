@@ -1,11 +1,11 @@
-import Foundation
-
 /// One full request/response exchange captured by the proxy. This is the unit
 /// serialized to JSON and pushed to the browser frontend over the WebSocket
 /// bridge (Week 3), and decoded back into this same type on the Frontend side.
 public struct TrafficFrame: Codable, Equatable {
     public let id: String
-    public let timestamp: Date
+    /// ISO-8601 timestamp. Stored in its wire representation so Core remains
+    /// Foundation-free when linked into the WebAssembly frontend.
+    public let timestamp: String
     public let request: CapturedRequest
     public var response: CapturedResponse?
     /// Wall-clock duration from request start to response completion, in milliseconds.
@@ -16,7 +16,7 @@ public struct TrafficFrame: Codable, Equatable {
     /// exchange is still in flight.
     public var error: String?
 
-    public init(id: String, timestamp: Date, request: CapturedRequest, response: CapturedResponse?,
+    public init(id: String, timestamp: String, request: CapturedRequest, response: CapturedResponse?,
                 durationMs: Double?, error: String? = nil) {
         self.id = id
         self.timestamp = timestamp
