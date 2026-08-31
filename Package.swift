@@ -16,17 +16,11 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
         .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
-        .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.19.0"),
-        // JSS does not publish version tags yet, so pin an audited revision
-        // rather than following a moving branch.
-        .package(
-            url: "https://github.com/rarestype/jss.git",
-            revision: "9a17c945500acfdbbc0057b687a69ce1fd865f4e"
-        )
+        .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.19.0")
     ],
     targets: [
-        // Shared Codable models, no dependencies — usable from both the
-        // native proxy and the Wasm frontend.
+        // Shared models with no dependencies — usable from both the native
+        // proxy and the Wasm frontend.
         .target(
             name: "Core",
             path: "Sources/Core"
@@ -50,13 +44,9 @@ let package = Package(
             name: "Frontend",
             dependencies: [
                 "Core",
-                .product(name: "JavaScriptKit", package: "JavaScriptKit"),
-                .product(name: "JavaScript", package: "jss")
+                .product(name: "JavaScriptKit", package: "JavaScriptKit")
             ],
-            path: "Sources/Frontend",
-            resources: [
-                .process("index.html")
-            ]
+            path: "Sources/Frontend"
         ),
         .testTarget(
             name: "CoreTests",

@@ -66,22 +66,35 @@ final class TunneledHTTPHandler: ChannelInboundHandler {
             body: bodyText,
             bodyIsBase64: isBase64
         )
+        let transaction: CaptureTransaction = .init(request: capturedRequest, startTime: startTime)
 
-        let bootstrap = ClientBootstrap(group: clientChannel.eventLoop.next())
+        let bootstrap: ClientBootstrap = ClientBootstrap(group: clientChannel.eventLoop.next())
+            .connectTimeout(ProxyTimeouts.connect)
             .channelInitializer { channel in
                 do {
-                    let tlsConfig = TLSConfiguration.makeClientConfiguration()
-                    let sslContext = try NIOSSLContext(configuration: tlsConfig)
-                    let sslHandler = try NIOSSLClientHandler(context: sslContext, serverHostname: self.tunnelHost)
+                    let tlsConfig: TLSConfiguration = .makeClientConfiguration()
+                    let sslContext: NIOSSLContext = try .init(configuration: tlsConfig)
+                    let sslHandler: NIOSSLClientHandler = try .init(
+                        context: sslContext,
+                        serverHostname: self.tunnelHost
+                    )
                     return channel.pipeline.addHandler(sslHandler).flatMap {
                         channel.pipeline.addHTTPClientHandlers()
+                    }.flatMap {
+                        do {
+                            try channel.pipeline.syncOperations.addHandler(
+                                IdleStateHandler(readTimeout: ProxyTimeouts.upstreamRead)
+                            )
+                            return channel.eventLoop.makeSucceededFuture(())
+                        } catch {
+                            return channel.eventLoop.makeFailedFuture(error)
+                        }
                     }.flatMap {
                         channel.pipeline.addHandler(BackendHandler(
                             requestHead: originHead,
                             requestBody: body,
-                            capturedRequest: capturedRequest,
-                            clientChannel: clientChannel,
-                            startTime: startTime
+                            transaction: transaction,
+                            clientChannel: clientChannel
                         ))
                     }
                 } catch {
@@ -91,17 +104,8 @@ final class TunneledHTTPHandler: ChannelInboundHandler {
 
         bootstrap.connect(host: tunnelHost, port: tunnelPort).whenFailure { [weak self] error in
             guard let self else { return }
+            guard transaction.emit(error: error) else { return }
             self.writeErrorResponse(channel: clientChannel, message: "Could not connect to \(self.tunnelHost):\(self.tunnelPort) — \(error)")
-
-            let frame = TrafficFrame(
-                id: UUID().uuidString,
-                timestamp: FrameCoding.timestamp(startTime),
-                request: capturedRequest,
-                response: nil,
-                durationMs: Date().timeIntervalSince(startTime) * 1000,
-                error: "\(error)"
-            )
-            FrameSink.shared.emit(frame)
         }
     }
 

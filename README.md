@@ -21,8 +21,8 @@ Proxy (native Swift, SwiftNIO) — listens on 127.0.0.1:8080
         │
         ▼
 Frontend (Swift compiled to WebAssembly + JavaScriptKit)
-  • Connects to the WebSocket feed, decodes each frame (via the same
-    Codable model the proxy uses — see Core below)
+  • Connects to the WebSocket feed and decodes each frame into the shared
+    Core model without linking Foundation or Codable into Wasm
   • Renders a live, append-only session table: Method / Host / Path /
     Status / Content-Type / Size / Duration
   • Each row expands (native <details>) to show full request/response
@@ -31,7 +31,7 @@ Frontend (Swift compiled to WebAssembly + JavaScriptKit)
 
 Three targets share one Swift package:
 
-- **Core** — the `TrafficFrame` Codable model and related types. No platform-specific dependencies, so it compiles identically for both the native proxy and the Wasm frontend — this is what keeps the wire format consistent on both ends without duplicating it.
+- **Core** — the `TrafficFrame` model and related types. It has no platform-specific dependencies; native builds add `Codable`, while the Wasm frontend uses its lightweight JavaScriptKit decoder.
 - **Proxy** — the SwiftNIO server: HTTP/HTTPS capture, the WebSocket broadcast, and the local certificate authority for HTTPS interception.
 - **Frontend** — the Wasm module that runs in the browser and renders the live session view.
 
@@ -139,6 +139,14 @@ curl -x http://127.0.0.1:8080 http://neverssl.com
 
 # HTTPS — trust the CA for just this one command with --cacert
 curl -x http://127.0.0.1:8080 --cacert ~/.reedpipe/ReedPipeRootCA.pem https://neverssl.com
+```
+
+To generate 20 monitored requests (10 HTTP and 10 HTTPS) with timeouts, one
+intentional upstream connection failure, one intentional HTTP 503 response,
+and a summary, run:
+
+```bash
+./Scripts/generate-test-traffic.sh
 ```
 
 Each request should appear as a new row in the browser tab, with a "Details" expander showing full headers and bodies.

@@ -14,6 +14,6 @@ public struct CapturedResponse: Equatable {
     }
 }
 
-#if !hasFeature(Embedded)
+#if !os(WASI) && !hasFeature(Embedded)
 extension CapturedResponse: Codable {}
 #endif

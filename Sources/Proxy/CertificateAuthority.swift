@@ -24,6 +24,9 @@ import NIOConcurrencyHelpers
 /// chosen "for" their specific SNI value — so this satisfies certificate
 /// validation for every covered host equally.
 final class CertificateAuthority {
+    /// Covers small clock differences and certificate timestamp precision.
+    private static let validitySkewAllowance: TimeInterval = 5 * 60
+
     private let caCertificate: Certificate
     private let caPrivateKey: Certificate.PrivateKey
     private let storageDirectory: URL
@@ -89,7 +92,8 @@ final class CertificateAuthority {
             OrganizationName("ReedPipe (locally generated — do not distribute)")
         }
 
-        let now = Date()
+        let now: Date = .init()
+        let validFrom: Date = now.addingTimeInterval(-Self.validitySkewAllowance)
         let extensions = try Certificate.Extensions {
             Critical(BasicConstraints.isCertificateAuthority(maxPathLength: nil))
             Critical(KeyUsage(keyCertSign: true, cRLSign: true))
@@ -99,7 +103,7 @@ final class CertificateAuthority {
             version: .v3,
             serialNumber: Certificate.SerialNumber(),
             publicKey: key.publicKey,
-            notValidBefore: now,
+            notValidBefore: validFrom,
             notValidAfter: now.addingTimeInterval(60 * 60 * 24 * 365 * 5), // 5 years
             issuer: name,
             subject: name,
@@ -158,12 +162,13 @@ final class CertificateAuthority {
             SubjectAlternativeNames(sanNames)
         }
 
-        let now = Date()
+        let now: Date = .init()
+        let validFrom: Date = now.addingTimeInterval(-Self.validitySkewAllowance)
         let leafCertificate = try Certificate(
             version: .v3,
             serialNumber: Certificate.SerialNumber(),
             publicKey: leafKey.publicKey,
-            notValidBefore: now,
+            notValidBefore: validFrom,
             // Short-lived on purpose — this cert gets rebuilt whenever a new
             // host shows up anyway, so there's no benefit to a long lifetime,
             // and a short one limits exposure if the storage directory leaks.

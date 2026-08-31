@@ -1,5 +1,4 @@
 import JavaScriptKit
-import JavaScript
 import Core
 
 /// Errors that can occur during frame decoding.

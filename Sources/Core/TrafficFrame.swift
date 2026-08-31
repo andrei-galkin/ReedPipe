@@ -27,6 +27,6 @@ public struct TrafficFrame: Equatable {
     }
 }
 
-#if !hasFeature(Embedded)
+#if !os(WASI) && !hasFeature(Embedded)
 extension TrafficFrame: Codable {}
 #endif

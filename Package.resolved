@@ -10,14 +10,6 @@
       }
     },
     {
-      "identity" : "jss",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rarestype/jss.git",
-      "state" : {
-        "revision" : "9a17c945500acfdbbc0057b687a69ce1fd865f4e"
-      }
-    },
-    {
       "identity" : "swift-asn1",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-asn1.git",

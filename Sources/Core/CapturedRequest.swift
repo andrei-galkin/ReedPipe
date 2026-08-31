@@ -15,6 +15,6 @@ public struct CapturedRequest: Equatable {
     }
 }
 
-#if !hasFeature(Embedded)
+#if !os(WASI) && !hasFeature(Embedded)
 extension CapturedRequest: Codable {}
 #endif

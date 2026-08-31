@@ -11,6 +11,6 @@ public struct CapturedHeader: Equatable {
     }
 }
 
-#if !hasFeature(Embedded)
+#if !os(WASI) && !hasFeature(Embedded)
 extension CapturedHeader: Codable {}
 #endif

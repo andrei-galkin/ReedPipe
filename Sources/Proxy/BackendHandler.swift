@@ -9,9 +9,8 @@ final class BackendHandler: ChannelInboundHandler {
 
     private let requestHead: HTTPRequestHead
     private let requestBody: [UInt8]
-    private let capturedRequest: CapturedRequest
+    private let transaction: CaptureTransaction
     private let clientChannel: Channel
-    private let startTime: Date
 
     private var responseHead: HTTPResponseHead?
     private var responseBodyBytes: [UInt8] = []
@@ -21,14 +20,12 @@ final class BackendHandler: ChannelInboundHandler {
 
     init(requestHead: HTTPRequestHead,
          requestBody: [UInt8],
-         capturedRequest: CapturedRequest,
-         clientChannel: Channel,
-         startTime: Date) {
+         transaction: CaptureTransaction,
+         clientChannel: Channel) {
         self.requestHead = requestHead
         self.requestBody = requestBody
-        self.capturedRequest = capturedRequest
+        self.transaction = transaction
         self.clientChannel = clientChannel
-        self.startTime = startTime
     }
 
     func channelActive(context: ChannelHandlerContext) {
@@ -55,27 +52,28 @@ final class BackendHandler: ChannelInboundHandler {
     }
 
     func errorCaught(context: ChannelHandlerContext, error: Error) {
-        guard !finished else {
-            context.close(promise: nil)
+        self.fail(context: context, error: error)
+    }
+
+    func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+        guard let idleEvent: IdleStateHandler.IdleStateEvent = event as? IdleStateHandler.IdleStateEvent else {
+            context.fireUserInboundEventTriggered(event)
             return
         }
-        finished = true
 
-        FileHandle.standardError.write("Backend connection error: \(error)\n".data(using: .utf8)!)
+        switch idleEvent {
+        case .read:
+            self.fail(context: context, error: UpstreamFailure.responseTimedOut)
+        case .write, .all:
+            context.fireUserInboundEventTriggered(event)
+        }
+    }
 
-        writeErrorResponse(status: .badGateway, message: "Upstream error: \(error)")
-
-        let frame = TrafficFrame(
-            id: UUID().uuidString,
-            timestamp: FrameCoding.timestamp(startTime),
-            request: capturedRequest,
-            response: nil,
-            durationMs: Date().timeIntervalSince(startTime) * 1000,
-            error: "\(error)"
-        )
-        FrameSink.shared.emit(frame)
-
-        context.close(promise: nil)
+    func channelInactive(context: ChannelHandlerContext) {
+        if !self.finished {
+            self.fail(context: context, error: UpstreamFailure.closedBeforeResponseCompleted)
+        }
+        context.fireChannelInactive()
     }
 
     /// Writes a synthetic error response to the original client so it doesn't
@@ -96,11 +94,14 @@ final class BackendHandler: ChannelInboundHandler {
     }
 
     private func finish(context: ChannelHandlerContext) {
-        guard !finished else { return }
-        finished = true
-        defer { context.close(promise: nil) }
+        guard !self.finished else { return }
 
-        guard let head = responseHead else { return }
+        guard let head: HTTPResponseHead = self.responseHead else {
+            self.fail(context: context, error: UpstreamFailure.missingResponseHead)
+            return
+        }
+        self.finished = true
+        defer { context.close(promise: nil) }
 
         var clientHead = HTTPResponseHead(version: .http1_1, status: head.status)
         clientHead.headers = head.headers
@@ -126,14 +127,27 @@ final class BackendHandler: ChannelInboundHandler {
             bodyIsBase64: isBase64
         )
 
-        let frame = TrafficFrame(
-            id: UUID().uuidString,
-            timestamp: FrameCoding.timestamp(startTime),
-            request: capturedRequest,
-            response: capturedResponse,
-            durationMs: Date().timeIntervalSince(startTime) * 1000
-        )
+        self.transaction.emit(response: capturedResponse)
+    }
 
-        FrameSink.shared.emit(frame)
+    private func fail(context: ChannelHandlerContext, error: Error) {
+        guard !self.finished else {
+            context.close(promise: nil)
+            return
+        }
+        self.finished = true
+
+        guard self.transaction.emit(error: error) else {
+            context.close(promise: nil)
+            return
+        }
+
+        let message: String = "Upstream error: \(error)"
+        FileHandle.standardError.write("Backend connection error: \(error)\n".data(using: .utf8)!)
+
+        if self.clientChannel.isActive {
+            self.writeErrorResponse(status: .badGateway, message: message)
+        }
+        context.close(promise: nil)
     }
 }

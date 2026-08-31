@@ -3,11 +3,6 @@ import NIO
 import NIOHTTP1
 import NIOSSL
 import Core
-import Foundation
-import NIO
-import NIOHTTP1
-import NIOSSL
-import Core
 
 /// Handles the client-facing side of a proxy connection.
 //
@@ -95,23 +90,37 @@ final class FrontendHandler: ChannelInboundHandler, RemovableChannelHandler {
             body: bodyText,
             bodyIsBase64: isBase64
         )
+        let transaction: CaptureTransaction = .init(request: capturedRequest, startTime: startTime)
 
-        let bootstrap = ClientBootstrap(group: clientChannel.eventLoop.next())
+        let bootstrap: ClientBootstrap = ClientBootstrap(group: clientChannel.eventLoop.next())
+            .connectTimeout(ProxyTimeouts.connect)
             .channelInitializer { channel in
                 channel.pipeline.addHTTPClientHandlers().flatMap {
+                    do {
+                        try channel.pipeline.syncOperations.addHandler(
+                            IdleStateHandler(readTimeout: ProxyTimeouts.upstreamRead)
+                        )
+                        return channel.eventLoop.makeSucceededFuture(())
+                    } catch {
+                        return channel.eventLoop.makeFailedFuture(error)
+                    }
+                }.flatMap {
                     channel.pipeline.addHandler(BackendHandler(
                         requestHead: originHead,
                         requestBody: body,
-                        capturedRequest: capturedRequest,
-                        clientChannel: clientChannel,
-                        startTime: startTime
+                        transaction: transaction,
+                        clientChannel: clientChannel
                     ))
                 }
             }
 
         bootstrap.connect(host: host, port: port).whenFailure { error in
-            self.writeSimpleError(channel: clientChannel, status: .badGateway,
-                                   message: "Could not connect to \(host):\(port) — \(error)")
+            guard transaction.emit(error: error) else { return }
+            self.writeSimpleError(
+                channel: clientChannel,
+                status: .badGateway,
+                message: "Could not connect to \(host):\(port) — \(error)"
+            )
         }
     }
 
