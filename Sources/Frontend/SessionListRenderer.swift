@@ -66,7 +66,7 @@ final class SessionListRenderer {
     }
 
     private func populate(row: JSObject, with frame: TrafficFrame) {
-        addCell(to: row, text: frame.request.method)
+        addMethodCell(to: row, method: frame.request.method)
         addCell(to: row, text: frame.request.url)
         addCell(to: row, text: statusText(for: frame))
         addCell(to: row, text: durationText(for: frame))
@@ -76,6 +76,15 @@ final class SessionListRenderer {
     private func addCell(to row: JSObject, text: String) {
         let cell = JSHelper.createElement("td")
         JSHelper.setText(cell, text)
+        JSHelper.append(cell, to: row)
+    }
+
+    private func addMethodCell(to row: JSObject, method: String) {
+        let cell: JSObject = JSHelper.createElement("td")
+        let badge: JSObject = JSHelper.createElement("span")
+        badge.className = .string("reedpipe-method reedpipe-method-\(methodClass(for: method))")
+        JSHelper.setText(badge, method)
+        JSHelper.append(badge, to: cell)
         JSHelper.append(cell, to: row)
     }
 
@@ -113,5 +122,22 @@ final class SessionListRenderer {
         guard let ms = frame.durationMs else { return "—" }
         let tenths = Int((ms * 10).rounded())
         return "\(tenths / 10).\(abs(tenths % 10))"
+    }
+
+    private func methodClass(for method: String) -> String {
+        switch method {
+        case "GET":
+            "get"
+        case "PUT":
+            "put"
+        case "PATCH":
+            "patch"
+        case "POST":
+            "post"
+        case "DELETE":
+            "delete"
+        default:
+            "other"
+        }
     }
 }

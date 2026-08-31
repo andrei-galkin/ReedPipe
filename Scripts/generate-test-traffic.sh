@@ -27,7 +27,7 @@ readonly -a https_cases=(
     '200|POST|https://postman-echo.com/post|{"source":"reedpipe","protocol":"https"}'
     "200|DELETE|https://postman-echo.com/delete|"
     "503|GET|https://httpbin.org/status/503|"
-    "200|GET|https://postman-echo.com/get|"
+    '200|PATCH|https://postman-echo.com/patch|{"source":"reedpipe","operation":"patch-test"}'
     "200|GET|https://www.swift.org/|"
     "200|GET|https://api.github.com/zen|"
     "200|GET|https://www.cloudflare.com/cdn-cgi/trace|"
