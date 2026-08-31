@@ -4,12 +4,17 @@ import Core
 @main
 struct FrontendApp {
     static func main() {
-        let status = JSHelper.createElement("div")
-        JSHelper.setID(status, "reedpipe-status")
+        let status: JSObject
+        if let existing: JSObject = JSHelper.byID("reedpipe-status") {
+            status = existing
+        } else {
+            status = JSHelper.createElement("div")
+            JSHelper.setID(status, "reedpipe-status")
+            JSHelper.append(status, to: JSHelper.body)
+        }
         JSHelper.setText(status, "Connecting…")
-        JSHelper.append(status, to: JSHelper.body)
 
-        let container = JSHelper.createElement("div")
+        let container: JSObject = JSHelper.createElement("div")
         JSHelper.setID(container, "reedpipe-sessions")
         JSHelper.append(container, to: JSHelper.body)
 

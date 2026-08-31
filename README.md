@@ -8,7 +8,7 @@ Point your tools (or your browser) at ReedPipe as an HTTP/HTTPS proxy, and watch
 
 ```
 Test client (curl / browser)
-        │  configured to use ReedPipe as its proxy
+        │    configured to use ReedPipe as its proxy
         ▼
 Proxy (native Swift, SwiftNIO) — listens on 127.0.0.1:8080
   • Plain HTTP: parses the absolute-form request, forwards it, captures
@@ -42,35 +42,35 @@ ReedPipe/
 ├── Package.swift
 ├── Sources/
 │   ├── Core/
-│   │   ├── TrafficFrame.swift        # The captured request/response frame
+│   │   ├── TrafficFrame.swift         # The captured request/response frame
 │   │   ├── CapturedRequest.swift
 │   │   ├── CapturedResponse.swift
 │   │   ├── CapturedHeader.swift
-│   │   ├── BodyEncoder.swift         # UTF-8 vs base64 body encoding
-│   │   └── FrameCoding.swift         # Shared JSON encoder/decoder config
+│   │   ├── BodyEncoder.swift          # UTF-8 vs base64 body encoding
+│   │   └── FrameCoding.swift          # Shared JSON encoder/decoder config
 │   ├── Proxy/
-│   │   ├── Main.swift                # Entry point; starts the CA + server
-│   │   ├── ProxyServer.swift         # Bootstraps the listening socket
-│   │   ├── FrontendHandler.swift     # Client-facing: HTTP forward + CONNECT/TLS upgrade
-│   │   ├── TunneledHTTPHandler.swift # Parses decrypted HTTPS traffic inside a tunnel
-│   │   ├── BackendHandler.swift      # Outbound leg: replays the request, captures the response
+│   │   ├── Main.swift                 # Entry point; starts the CA + server
+│   │   ├── ProxyServer.swift          # Bootstraps the listening socket
+│   │   ├── FrontendHandler.swift      # Client-facing: HTTP forward + CONNECT/TLS upgrade
+│   │   ├── TunneledHTTPHandler.swift  # Parses decrypted HTTPS traffic inside a tunnel
+│   │   ├── BackendHandler.swift       # Outbound leg: replays the request, captures the response
 │   │   ├── CertificateAuthority.swift # Local root CA + per-host leaf cert minting
-│   │   ├── FrameSink.swift           # Where captured frames leave the pipeline
-│   │   ├── FrameBroadcaster.swift    # Tracks connected WebSocket clients
-│   │   └── WebSocketHandler.swift    # Per-connection WebSocket housekeeping
+│   │   ├── FrameSink.swift            # Where captured frames leave the pipeline
+│   │   ├── FrameBroadcaster.swift     # Tracks connected WebSocket clients
+│   │   └── WebSocketHandler.swift     # Per-connection WebSocket housekeeping
 │   └── Frontend/
-│       ├── App.swift                 # Wasm entry point
-│       ├── SessionController.swift   # Wires WebSocket + store + renderer together
-│       ├── WebSocketClient.swift     # Connects to /ws, reconnects with backoff
-│       ├── SessionStore.swift        # In-memory frame store
-│       ├── SessionListRenderer.swift # Builds the live DOM table
-│       ├── DetailFormatting.swift    # Body/header formatting, JSON pretty-printing
-│       └── JSHelpers.swift           # Centralized JavaScriptKit call patterns
+│       ├── App.swift                  # Wasm entry point
+│       ├── SessionController.swift    # Wires WebSocket + store + renderer together
+│       ├── WebSocketClient.swift      # Connects to /ws, reconnects with backoff
+│       ├── SessionStore.swift         # In-memory frame store
+│       ├── SessionListRenderer.swift  # Builds the live DOM table
+│       ├── DetailFormatting.swift     # Body/header formatting, JSON pretty-printing
+│       └── JSHelpers.swift            # Centralized JavaScriptKit call patterns
 ├── Tests/
 │   └── CoreTests/
 │       └── TrafficFrameTests.swift
 ├── Public/
-│   └── index.html                    # Page shell that loads the compiled Wasm module
+│   └── index.html                     # Page shell that loads the compiled Wasm module
 └── README.md
 ```
 
@@ -105,11 +105,11 @@ swift build --target Proxy
 ### 3. Build and package the Frontend (Wasm)
 
 ```bash
-swift build --target Frontend --swift-sdk <your-sdk-id-from-above>
-swift package --swift-sdk <your-sdk-id-from-above> js --use-cdn --product Frontend
+swift build --scratch-path .build/wasm --target Frontend --swift-sdk <your-sdk-id-from-above>
+swift package --scratch-path .build/wasm --swift-sdk <your-sdk-id-from-above> js --use-cdn --product Frontend
 ```
 
-The second command uses JavaScriptKit's `PackageToJS` plugin to produce a ready-to-serve bundle at `.build/plugins/PackageToJS/outputs/Package/` — `Public/index.html` already points at this path, so no manual file copying is needed.
+The separate Wasm scratch directory prevents SwiftPM's cross-compilation build plan from replacing the native plan used by `swift build --target Proxy` and `swift run Proxy`. The second command uses JavaScriptKit's `PackageToJS` plugin to produce a ready-to-serve bundle at `.build/wasm/plugins/PackageToJS/outputs/Package/` — `Public/index.html` already points at this path, so no manual file copying is needed.
 
 > Don't run plain `swift build` or `swift test` with no target/filter on a machine that only has the native toolchain installed — it'll try to build the Wasm-only `Frontend` target too and fail. Always scope commands with `--target`/`--filter` until the Wasm SDK is set up.
 
@@ -166,3 +166,7 @@ When you're done, switch the proxy setting back to "Use system proxy settings" �
 ```bash
 swift test --filter CoreTests
 ```
+
+## Acknowledgements
+
+This project was created during the official [Swift Mentorship Program](https://www.swift.org/mentorship/).

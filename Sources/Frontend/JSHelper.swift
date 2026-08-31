@@ -28,6 +28,10 @@ enum JSHelper {
         document.getElementById!(id).object
     }
 
+    static func querySelector(in element: JSObject, selector: String) -> JSObject? {
+        element.querySelector!(selector).object
+    }
+
     @discardableResult
     static func append(_ child: JSObject, to parent: JSObject) -> JSValue {
         parent.appendChild!(child)
@@ -44,6 +48,11 @@ enum JSHelper {
 
     static func setText(_ element: JSObject, _ text: String) {
         element.innerText = .string(text)
+    }
+
+    static func setTextColor(_ element: JSObject, _ color: String) {
+        guard let style: JSObject = element.style.object else { return }
+        style.color = .string(color)
     }
 
     static func setID(_ element: JSObject, _ id: String) {

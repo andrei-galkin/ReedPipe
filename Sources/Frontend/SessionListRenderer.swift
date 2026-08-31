@@ -12,27 +12,39 @@ final class SessionListRenderer {
     private let tableBody: JSObject
 
     init(containerID: String) {
-        let table = JSHelper.createElement("table")
-        JSHelper.setID(table, "reedpipe-session-table")
+        // Try to reuse existing table from HTML, or create new one
+        let table: JSObject
+        if let existingTable = JSHelper.byID("reedpipe-session-table") {
+            table = existingTable
+        } else {
+            table = JSHelper.createElement("table")
+            JSHelper.setID(table, "reedpipe-session-table")
 
-        let thead = JSHelper.createElement("thead")
-        let headerRow = JSHelper.createElement("tr")
-        for label in ["Method", "URL", "Status", "Duration (ms)"] {
-            let th = JSHelper.createElement("th")
-            JSHelper.setText(th, label)
-            JSHelper.append(th, to: headerRow)
+            let thead = JSHelper.createElement("thead")
+            let headerRow = JSHelper.createElement("tr")
+            for label in ["Method", "URL", "Status", "Duration (ms)"] {
+                let th = JSHelper.createElement("th")
+                JSHelper.setText(th, label)
+                JSHelper.append(th, to: headerRow)
+            }
+            JSHelper.append(headerRow, to: thead)
+            JSHelper.append(thead, to: table)
+
+            guard let container = JSHelper.byID(containerID) else {
+                fatalError("ReedPipe: container element #\(containerID) not found — is index.html missing it?")
+            }
+            JSHelper.append(table, to: container)
         }
-        JSHelper.append(headerRow, to: thead)
-        JSHelper.append(thead, to: table)
 
-        let tbody = JSHelper.createElement("tbody")
-        JSHelper.append(tbody, to: table)
+        // Get or create tbody
+        let tbody: JSObject
+        if let existingTbody = JSHelper.querySelector(in: table, selector: "tbody") {
+            tbody = existingTbody
+        } else {
+            tbody = JSHelper.createElement("tbody")
+            JSHelper.append(tbody, to: table)
+        }
         self.tableBody = tbody
-
-        guard let container = JSHelper.byID(containerID) else {
-            fatalError("ReedPipe: container element #\(containerID) not found — is index.html missing it?")
-        }
-        JSHelper.append(table, to: container)
     }
 
     func appendRow(for frame: TrafficFrame) {

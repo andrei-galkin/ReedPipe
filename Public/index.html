@@ -35,10 +35,24 @@
   </style>
 </head>
 <body>
-  <!-- Build with: swift package --swift-sdk swift-6.3.3-RELEASE_wasm js --use-cdn -->
+  <div id="reedpipe-status"></div>
+
+  <table id="reedpipe-session-table">
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Status</th>
+        <th>Duration (ms)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Build with: swift package --scratch-path .build/wasm --swift-sdk <sdk-id> js --use-cdn --product Frontend -->
   <!-- (run from the ReedPipe project root; adjust the SDK id if yours differs) -->
   <script type="module">
-    import { init } from "../.build/plugins/PackageToJS/outputs/Package/index.js";
+    import { init } from "../.build/wasm/plugins/PackageToJS/outputs/Package/index.js";
     init();
   </script>
 </body>
