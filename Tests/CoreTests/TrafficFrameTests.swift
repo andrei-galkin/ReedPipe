@@ -12,6 +12,7 @@ final class TrafficFrameTests: XCTestCase {
             bodyIsBase64: false
         )
         let response = CapturedResponse(
+            httpVersion: "HTTP/1.1",
             statusCode: 200,
             reason: "OK",
             headers: [CapturedHeader(name: "Content-Type", value: "text/plain")],

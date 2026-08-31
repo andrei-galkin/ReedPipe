@@ -13,6 +13,7 @@ final class FrameTests: XCTestCase {
             bodyIsBase64: false
         )
         let response = CapturedResponse(
+            httpVersion: "HTTP/1.1",
             statusCode: 200,
             reason: "OK",
             headers: [CapturedHeader(name: "Content-Type", value: "text/plain")],
@@ -68,5 +69,37 @@ final class FrameTests: XCTestCase {
 
         XCTAssertNil(text)
         XCTAssertFalse(isBase64)
+    }
+
+    func testRawResponseFormatterIncludesStatusHeadersAndBody() {
+        let response = CapturedResponse(
+            httpVersion: "HTTP/1.1",
+            statusCode: 201,
+            reason: "Created",
+            headers: [
+                CapturedHeader(name: "Content-Type", value: "application/json"),
+                CapturedHeader(name: "X-Test", value: "one")
+            ],
+            body: "{\"created\":true}",
+            bodyIsBase64: false
+        )
+
+        XCTAssertEqual(
+            RawResponseFormatter.format(response),
+            "HTTP/1.1 201 Created\r\nContent-Type: application/json\r\nX-Test: one\r\n\r\n{\"created\":true}"
+        )
+    }
+
+    func testRawResponseFormatterTerminatesHeaderOnlyResponse() {
+        let response = CapturedResponse(
+            httpVersion: "HTTP/1.0",
+            statusCode: 204,
+            reason: "No Content",
+            headers: [],
+            body: nil,
+            bodyIsBase64: false
+        )
+
+        XCTAssertEqual(RawResponseFormatter.format(response), "HTTP/1.0 204 No Content\r\n\r\n")
     }
 }

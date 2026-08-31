@@ -149,7 +149,9 @@ failure, one intentional HTTP 503 response, and a summary, run:
 ./Scripts/generate-test-traffic.sh
 ```
 
-Each request should appear as a new row in the browser tab, with a "Details" expander showing full headers and bodies.
+Each request should appear as a new row in the browser tab. Click **View** in
+the Response column to inspect the complete status line, headers, and body in a
+modal dialog. Binary bodies are displayed as Base64.
 
 ## Inspecting your browser's traffic
 

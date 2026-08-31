@@ -2,14 +2,11 @@ import JavaScriptKit
 import Core
 
 /// Renders the session list into a container element: one row per frame,
-/// appended live as frames arrive.
-///
-/// This is the Week 4-6 checkpoint: a correct, live list. Expandable
-/// per-row detail and JSON pretty-printing (from the original milestone
-/// plan) build on top of this later — this stage deliberately keeps each
-/// row to the summary columns.
+/// appended live as frames arrive. Completed responses can be opened as a
+/// reconstructed raw HTTP message in a modal dialog.
 final class SessionListRenderer {
     private let tableBody: JSObject
+    private let responseDialog: ResponseDialog = .init()
 
     init(containerID: String) {
         // Try to reuse existing table from HTML, or create new one
@@ -22,7 +19,7 @@ final class SessionListRenderer {
 
             let thead = JSHelper.createElement("thead")
             let headerRow = JSHelper.createElement("tr")
-            for label in ["Method", "URL", "Status", "Duration (ms)"] {
+            for label in ["Method", "URL", "Status", "Duration (ms)", "Response"] {
                 let th = JSHelper.createElement("th")
                 JSHelper.setText(th, label)
                 JSHelper.append(th, to: headerRow)
@@ -73,11 +70,32 @@ final class SessionListRenderer {
         addCell(to: row, text: frame.request.url)
         addCell(to: row, text: statusText(for: frame))
         addCell(to: row, text: durationText(for: frame))
+        addResponseCell(to: row, response: frame.response)
     }
 
     private func addCell(to row: JSObject, text: String) {
         let cell = JSHelper.createElement("td")
         JSHelper.setText(cell, text)
+        JSHelper.append(cell, to: row)
+    }
+
+    private func addResponseCell(to row: JSObject, response: CapturedResponse?) {
+        let cell: JSObject = JSHelper.createElement("td")
+        guard let response: CapturedResponse else {
+            JSHelper.setText(cell, "Unavailable")
+            JSHelper.append(cell, to: row)
+            return
+        }
+
+        let button: JSObject = JSHelper.createElement("button")
+        button.type = .string("button")
+        button.className = .string("reedpipe-view-response")
+        JSHelper.setText(button, "View")
+        button.onclick = .object(JSClosure { [weak self] _ in
+            self?.responseDialog.show(response: response)
+            return .undefined
+        })
+        JSHelper.append(button, to: cell)
         JSHelper.append(cell, to: row)
     }
 

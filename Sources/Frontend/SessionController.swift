@@ -111,13 +111,21 @@ final class SessionController {
             return nil
         }
         
+        let httpVersion = try getString(obj["httpVersion"])
         let statusCode = try getInt(obj["statusCode"])
         let reason = try getString(obj["reason"])
         let headers = try buildHeaders(obj["headers"])
         let body = try getStringOptional(obj["body"])
         let bodyIsBase64 = try getBool(obj["bodyIsBase64"])
         
-        return CapturedResponse(statusCode: statusCode, reason: reason, headers: headers, body: body, bodyIsBase64: bodyIsBase64)
+        return CapturedResponse(
+            httpVersion: httpVersion,
+            statusCode: statusCode,
+            reason: reason,
+            headers: headers,
+            body: body,
+            bodyIsBase64: bodyIsBase64
+        )
     }
     
     private func buildHeaders(_ json: JSValue) throws -> [CapturedHeader] {

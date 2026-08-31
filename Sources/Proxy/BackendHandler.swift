@@ -120,6 +120,7 @@ final class BackendHandler: ChannelInboundHandler {
         let capturedHeaders = head.headers.map { CapturedHeader(name: $0.name, value: $0.value) }
         let (bodyText, isBase64) = BodyEncoder.encode(responseBodyBytes)
         let capturedResponse = CapturedResponse(
+            httpVersion: "HTTP/\(head.version.major).\(head.version.minor)",
             statusCode: Int(head.status.code),
             reason: head.status.reasonPhrase,
             headers: capturedHeaders,
