@@ -1,182 +1,347 @@
 # ReedPipe
 
-ReedPipe — A lightweight, local-first HTTP traffic inspector built with native Swift (SwiftNIO) and a Swift/WebAssembly browser frontend.
+ReedPipe is a local HTTP/HTTPS debugging proxy written in Swift. It captures
+traffic with SwiftNIO and streams completed exchanges to a browser frontend
+written in Swift and compiled to WebAssembly.
 
-Point your tools (or your browser) at ReedPipe as an HTTP/HTTPS proxy, and watch every request and response — headers, bodies, status, timing — appear live in a browser-based session view. No traffic leaves your machine; there's no cloud component, no third-party service, nothing to sign up for.
+ReedPipe has no account, cloud service, or telemetry. Captured data stays in
+the local proxy and browser process; proxied requests still travel to their
+original destination servers.
 
-## How it works
+## Features
 
+- Inspects plain HTTP proxy requests.
+- Intercepts HTTPS `CONNECT` tunnels with a locally generated root CA.
+- Streams completed requests, responses, failures, and timings over WebSocket.
+- Shows a live table with colored GET, PUT, PATCH, POST, and DELETE badges.
+- Opens completed responses in a modal as a reconstructed HTTP status line,
+  headers, and body.
+- Displays binary response bodies as Base64.
+- Reports upstream connection failures and response timeouts in the table.
+- Keeps `Core` and `Frontend` free of Foundation; browser interop remains in
+  the `Frontend` target.
+
+## Architecture
+
+```text
+Client configured to use 127.0.0.1:8080
+                    │
+                    ▼
+Native Swift proxy (SwiftNIO)
+  HTTP  ──────────► origin server
+  HTTPS ─► local TLS termination ─► origin TLS server
+                    │
+                    └─ captured JSON frames
+                              │
+                              ▼ ws://127.0.0.1:8080/ws
+                    Swift/WebAssembly frontend
 ```
-Test client (curl / browser)
-        │    configured to use ReedPipe as its proxy
-        ▼
-Proxy (native Swift, SwiftNIO) — listens on 127.0.0.1:8080
-  • Plain HTTP: parses the absolute-form request, forwards it, captures
-    the request/response pair
-  • HTTPS (CONNECT): terminates TLS itself using a certificate minted by
-    a local root CA, decrypts, parses, forwards to the real origin over a
-    fresh outbound TLS connection, and captures the pair the same way
-  • Serializes each captured exchange into a JSON "frame" and broadcasts
-    it over a WebSocket at ws://127.0.0.1:8080/ws
-        │
-        ▼
-Frontend (Swift compiled to WebAssembly + JavaScriptKit)
-  • Connects to the WebSocket feed and decodes each frame into the shared
-    Core model without linking Foundation or Codable into Wasm
-  • Renders a live, append-only session table: Method / Host / Path /
-    Status / Content-Type / Size / Duration
-  • Each row expands (native <details>) to show full request/response
-    headers and bodies, with JSON bodies pretty-printed
-```
 
-Three targets share one Swift package:
+The browser monitor is live-only. It does not persist or replay exchanges made
+before the frontend reaches `Connected — live`.
 
-- **Core** — the `TrafficFrame` model and related types. It has no platform-specific dependencies; native builds add `Codable`, while the Wasm frontend uses its lightweight JavaScriptKit decoder.
-- **Proxy** — the SwiftNIO server: HTTP/HTTPS capture, the WebSocket broadcast, and the local certificate authority for HTTPS interception.
-- **Frontend** — the Wasm module that runs in the browser and renders the live session view.
+The Swift package contains three targets:
 
-## Project structure
+- `Core` — Foundation-free capture models, body encoding, and raw-response
+  formatting. Native builds add `Codable`; WASI builds exclude it.
+- `Proxy` — the native SwiftNIO proxy, WebSocket broadcaster, timeout handling,
+  HTTPS interception, CA management, and optional tunnel bypass.
+- `Frontend` — the JavaScriptKit/WebAssembly client, in-memory session store,
+  table renderer, and response dialog.
 
-```
+## Repository layout
+
+```text
 ReedPipe/
 ├── Package.swift
 ├── Sources/
-│   ├── Core/
-│   │   ├── TrafficFrame.swift         # The captured request/response frame
-│   │   ├── CapturedRequest.swift
-│   │   ├── CapturedResponse.swift
-│   │   ├── CapturedHeader.swift
-│   │   ├── BodyEncoder.swift          # UTF-8 vs base64 body encoding
-│   │   └── FrameCoding.swift          # Shared JSON encoder/decoder config
-│   ├── Proxy/
-│   │   ├── Main.swift                 # Entry point; starts the CA + server
-│   │   ├── ProxyServer.swift          # Bootstraps the listening socket
-│   │   ├── FrontendHandler.swift      # Client-facing: HTTP forward + CONNECT/TLS upgrade
-│   │   ├── TunneledHTTPHandler.swift  # Parses decrypted HTTPS traffic inside a tunnel
-│   │   ├── BackendHandler.swift       # Outbound leg: replays the request, captures the response
-│   │   ├── CertificateAuthority.swift # Local root CA + per-host leaf cert minting
-│   │   ├── FrameSink.swift            # Where captured frames leave the pipeline
-│   │   ├── FrameBroadcaster.swift     # Tracks connected WebSocket clients
-│   │   └── WebSocketHandler.swift     # Per-connection WebSocket housekeeping
-│   └── Frontend/
-│       ├── App.swift                  # Wasm entry point
-│       ├── SessionController.swift    # Wires WebSocket + store + renderer together
-│       ├── WebSocketClient.swift      # Connects to /ws, reconnects with backoff
-│       ├── SessionStore.swift         # In-memory frame store
-│       ├── SessionListRenderer.swift  # Builds the live DOM table
-│       ├── DetailFormatting.swift     # Body/header formatting, JSON pretty-printing
-│       └── JSHelpers.swift            # Centralized JavaScriptKit call patterns
-├── Tests/
-│   └── CoreTests/
-│       └── TrafficFrameTests.swift
+│   ├── Core/       # Shared capture models and formatters
+│   ├── Proxy/      # Native proxy, TLS interception, and WebSocket feed
+│   └── Frontend/   # Swift/WebAssembly browser application
 ├── Public/
-│   └── index.html                     # Page shell that loads the compiled Wasm module
-└── README.md
+│   └── index.html  # Page shell and styles
+├── Scripts/
+│   └── generate-test-traffic.sh
+└── Tests/
+    └── CoreTests/
 ```
 
-## Prerequisites
+## Requirements
 
-- **Swift 6.2+**, installed via [swiftly](https://swift.org/swiftly) or the official swift.org toolchain (this project was built and tested against **Swift 6.3.3**)
-- The matching **Wasm Swift SDK** for your exact toolchain version (see setup below)
-- `curl` and (optionally) a browser for testing — Firefox instructions are included below since Firefox uses its own certificate store separate from the OS
+- Swift 6.2 or newer. The project is currently validated with Swift 6.2.
+- A WebAssembly Swift SDK matching the installed Swift toolchain.
+- `curl` for the smoke test.
+- Python 3 or another static HTTP server for the browser frontend.
 
-## Setup
+## Quick start
 
-### 1. Install the Wasm Swift SDK
+### 1. Install or select the WebAssembly SDK
 
-The Frontend target compiles to `wasm32-unknown-wasi`, which needs a separately-installed SDK matching your exact Swift version:
+Check the native toolchain and installed SDKs:
 
 ```bash
-swift --version   # confirm your exact version, e.g. Swift version 6.3.3 (swift-6.3.3-RELEASE)
-
-# substitute your version below if it differs from 6.3.3 — URL and checksum
-# must match exactly; find both at https://www.swift.org/install
-swift sdk install https://download.swift.org/swift-6.3.3-release/wasm-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_wasm.artifactbundle.tar.gz --checksum cabfa08b73bb8ac783927ecd15fa386e99d0c139c5f232445067bcf58379cae7
-
-swift sdk list   # confirm it installed — note the exact SDK id it prints
+swift --version
+swift sdk list
 ```
 
-### 2. Build the Proxy (native)
+If no matching `_wasm` SDK is listed, download the WebAssembly SDK for the
+exact Swift release from [swift.org/install](https://www.swift.org/install/)
+and follow its `swift sdk install` command. The Swift toolchain and SDK release
+must match.
+
+Set the identifier printed by `swift sdk list`. For example, with Swift 6.2:
+
+```bash
+WASM_SDK=swift-6.2-RELEASE_wasm
+```
+
+Do not type explanatory placeholders such as `<your-sdk-id>` directly into
+Bash; angle brackets are shell redirection operators.
+
+### 2. Build the proxy and browser bundle
+
+From the repository root:
 
 ```bash
 swift build --target Proxy
+
+swift package \
+  --scratch-path .build/wasm \
+  --swift-sdk "$WASM_SDK" \
+  js --use-cdn --product Frontend
 ```
 
-### 3. Build and package the Frontend (Wasm)
+The JavaScriptKit packaging command builds the frontend and writes the
+browser-ready bundle to:
 
-```bash
-swift build --scratch-path .build/wasm --target Frontend --swift-sdk <your-sdk-id-from-above>
-swift package --scratch-path .build/wasm --swift-sdk <your-sdk-id-from-above> js --use-cdn --product Frontend
+```text
+.build/wasm/plugins/PackageToJS/outputs/Package/
 ```
 
-The separate Wasm scratch directory prevents SwiftPM's cross-compilation build plan from replacing the native plan used by `swift build --target Proxy` and `swift run Proxy`. The second command uses JavaScriptKit's `PackageToJS` plugin to produce a ready-to-serve bundle at `.build/wasm/plugins/PackageToJS/outputs/Package/` — `Public/index.html` already points at this path, so no manual file copying is needed.
+`Public/index.html` imports that bundle directly. The separate Wasm scratch
+directory prevents the cross-compilation build plan from replacing the native
+proxy build plan.
 
-> Don't run plain `swift build` or `swift test` with no target/filter on a machine that only has the native toolchain installed — it'll try to build the Wasm-only `Frontend` target too and fail. Always scope commands with `--target`/`--filter` until the Wasm SDK is set up.
+### 3. Start ReedPipe
 
-## Running
-
-**Terminal 1 — the proxy:**
+Terminal 1 — run the proxy:
 
 ```bash
 swift run Proxy
 ```
 
-On first run this generates a local root CA under `~/.reedpipe/` and prints its path — you'll need it for HTTPS interception (see below). On later runs the existing CA is reused.
+The proxy listens on `127.0.0.1:8080`. On first launch it creates:
 
-**Terminal 2 — serve the frontend:**
+```text
+~/.reedpipe/ReedPipeRootCA.pem
+~/.reedpipe/ReedPipeRootCA.key.pem
+```
+
+Terminal 2 — serve the repository root:
 
 ```bash
 python3 -m http.server 8000
 ```
 
-Open `http://localhost:8000/Public/index.html` — the status line should read "Connected — live".
+Open [http://localhost:8000/Public/index.html](http://localhost:8000/Public/index.html)
+and wait for the green `Connected — live` status.
 
-**Terminal 3 — generate traffic:**
+### 4. Generate traffic
+
+Plain HTTP:
 
 ```bash
-# plain HTTP
-curl -x http://127.0.0.1:8080 http://neverssl.com
-
-# HTTPS — trust the CA for just this one command with --cacert
-curl -x http://127.0.0.1:8080 --cacert ~/.reedpipe/ReedPipeRootCA.pem https://neverssl.com
+curl -x http://127.0.0.1:8080 http://example.com
 ```
 
-To generate 20 monitored GET, POST, PATCH, and DELETE requests (10 HTTP and 10
-HTTPS) with JSON request bodies, timeouts, one intentional upstream connection
-failure, one intentional HTTP 503 response, and a summary, run:
+HTTPS, trusting the ReedPipe CA for this command only:
+
+```bash
+curl \
+  -x http://127.0.0.1:8080 \
+  --cacert ~/.reedpipe/ReedPipeRootCA.pem \
+  https://example.com
+```
+
+Run the complete smoke test:
 
 ```bash
 ./Scripts/generate-test-traffic.sh
 ```
 
-Each request should appear as a new row in the browser tab. Click **View** in
-the Response column to inspect the complete status line, headers, and body in a
-modal dialog. Binary bodies are displayed as Base64.
+The script sends 20 requests: 10 HTTP and 10 HTTPS using GET, POST, PATCH, and
+DELETE. It includes JSON bodies, one intentional connection failure, and one
+intentional HTTP 503 response. A normal summary is:
 
-## Inspecting your browser's traffic
+```text
+18 passed, 2 expected error responses, 0 unexpected failures, 20 total.
+```
 
-To route a real browser through ReedPipe (rather than just `curl`), you need to both point it at the proxy **and** trust the CA certificate — Firefox keeps its own certificate store, separate from the OS:
+The test uses public endpoints, so temporary network or service issues can
+produce an unexpected result.
 
-1. **Import and trust the CA:** `about:preferences#privacy` → **Certificates** → **View Certificates...** → **Authorities** tab → **Import...** → select `~/.reedpipe/ReedPipeRootCA.pem` → check **"Trust this CA to identify websites"**
-2. **Set the proxy:** `about:preferences#general` → **Network Settings** → **Settings...** → **Manual proxy configuration** → HTTP Proxy `127.0.0.1` port `8080`, and check **"Also use this proxy for HTTPS"**
-3. Browse to a site and watch it show up live in the ReedPipe tab
+## Using the monitor
 
-When you're done, switch the proxy setting back to "Use system proxy settings" — otherwise all your browsing keeps trying to route through the proxy even after you stop it.
+Each completed exchange appears as a row containing:
+
+- Method
+- URL
+- Status or upstream error
+- Duration in milliseconds
+- Response action
+
+Click `View` in the Response column to open the captured HTTP version, status
+line, headers, and body. The dialog shows Base64 when a body is not valid
+UTF-8. Requests that fail before receiving an upstream response show their
+error in the Status column and `Unavailable` in the Response column.
+
+HTTPS entries contain the decrypted application-level HTTP response, not the
+encrypted TLS record bytes.
+
+## Routing a browser through ReedPipe
+
+A browser must use the proxy and trust `ReedPipeRootCA.pem` to inspect HTTPS.
+For Firefox:
+
+1. Open `about:preferences#privacy`, then **Certificates** → **View
+   Certificates...** → **Authorities** → **Import...**.
+2. Select `~/.reedpipe/ReedPipeRootCA.pem` and trust it to identify websites.
+3. Open `about:preferences#general`, then **Network Settings** → **Settings...**.
+4. Choose **Manual proxy configuration**, set HTTP Proxy to `127.0.0.1` and
+   port `8080`, and enable **Also use this proxy for HTTPS**.
+
+Restore the browser's normal proxy configuration when finished.
+
+## Bypassing HTTPS interception
+
+Clients using certificate pinning, mutual TLS, or another incompatible TLS
+policy can use a raw tunnel. Bypassed traffic is forwarded but cannot be
+inspected or displayed.
+
+Provide a comma-separated host list when starting the proxy:
+
+```bash
+REEDPIPE_BYPASS_HOSTS=example.com,api.example.com swift run Proxy
+```
+
+Alternatively, add one exact hostname per line to:
+
+```text
+~/.reedpipe/bypass.txt
+```
+
+The bypass list is loaded when the proxy starts; restart it after changing the
+environment variable or file. Matching is exact and does not currently support
+wildcards.
+
+## Smoke-test configuration
+
+The traffic script supports these environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `REEDPIPE_PROXY_URL` | `http://127.0.0.1:8080` | Proxy address |
+| `REEDPIPE_CA_CERTIFICATE` | `~/.reedpipe/ReedPipeRootCA.pem` | CA used by HTTPS requests |
+| `REEDPIPE_CONNECT_TIMEOUT` | `5` | curl connection timeout in seconds |
+| `REEDPIPE_REQUEST_TIMEOUT` | `20` | curl total timeout in seconds |
+
+Example:
+
+```bash
+REEDPIPE_REQUEST_TIMEOUT=30 ./Scripts/generate-test-traffic.sh
+```
+
+## What to rebuild
+
+| Changed files | Required action |
+| --- | --- |
+| `Sources/Proxy/` | Rebuild and restart `Proxy` |
+| `Sources/Core/` | Rebuild/restart `Proxy` and repackage `Frontend` |
+| `Sources/Frontend/` | Repackage `Frontend`, then hard-refresh the browser |
+| `Public/index.html` | Hard-refresh the browser; no Swift rebuild |
+| `Scripts/` or `README.md` | No build |
+
+Repackage the frontend with:
+
+```bash
+swift package \
+  --scratch-path .build/wasm \
+  --swift-sdk "$WASM_SDK" \
+  js --use-cdn --product Frontend
+```
+
+## Troubleshooting
+
+### `index.js` returns 404
+
+Run the frontend packaging command from the repository root and serve that
+same root with `python3 -m http.server 8000`. The expected bundle is
+`.build/wasm/plugins/PackageToJS/outputs/Package/index.js`.
+
+### The page stays disconnected
+
+Confirm `swift run Proxy` is still running and listening on `127.0.0.1:8080`.
+The frontend reconnects automatically with exponential backoff.
+
+### The table stays empty
+
+Wait for `Connected — live` before generating traffic. ReedPipe does not replay
+older exchanges. Also confirm the test client is explicitly using the proxy.
+
+### HTTPS certificate verification fails
+
+Use `--cacert ~/.reedpipe/ReedPipeRootCA.pem` with curl or import that
+certificate into the client's trust store. Also confirm the system clock is
+correct. You do not need to share or install the private key.
+
+### Port 8080 is already in use
+
+Stop the older ReedPipe process before starting a new build. The proxy address
+is currently fixed to `127.0.0.1:8080`.
 
 ## Known limitations
 
-- **A small number of sites can never work through any local MITM proxy, by design.** Domains on Firefox/Chrome's built-in HSTS-preload list (YouTube, Google, and similar high-value domains) hard-block interception at the browser binary level, with no override — this is intentional browser security policy, not a ReedPipe bug, and every tool in this category (mitmproxy, Charles, Fiddler) hits the same wall.
-- **No HTTP keep-alive over HTTPS tunnels.** Each captured request closes the tunnel afterward, so real browsing through the proxy is slower and more chatty (repeated TLS handshakes) than normal — capture correctness isn't affected, just performance.
-- **One certificate covers every host, rather than one-per-host via SNI.** `swift-nio-ssl` doesn't currently support per-connection certificate selection ([issue #310](https://github.com/apple/swift-nio-ssl/issues/310)), so ReedPipe mints a single certificate whose Subject Alternative Name list grows to cover every host visited, re-minted when a new host shows up. Functionally equivalent from the browser's point of view, but not how a "real" MITM proxy like mitmproxy is built internally.
-- **IPv6 literal CONNECT targets** (e.g. `[::1]:443`) aren't parsed correctly — low priority since browsers overwhelmingly send hostnames.
-- **The CA's private key file (`~/.reedpipe/ReedPipeRootCA.key.pem`) can sign a trusted certificate for any domain.** Never share it, and treat trusting the CA the same way you'd treat installing any other MITM tool's root certificate.
+- HTTP/1.1 is supported; HTTP/2 and HTTP/3 are not.
+- Requests and responses are fully buffered in memory, so large downloads,
+  uploads, and streaming responses are not suitable.
+- Connections are closed after each captured exchange; keep-alive and multiple
+  requests per HTTPS tunnel are not currently supported.
+- The monitor is in-memory and live-only, with no persistence, search, export,
+  or replay.
+- Certificate-pinned and mutual-TLS clients may reject interception; use the
+  bypass list when inspection is not required.
+- The proxy uses one in-memory leaf certificate whose Subject Alternative Name
+  list grows as new HTTPS hosts are visited during the process lifetime.
+- IPv6 literal `CONNECT` targets are not parsed correctly.
+- The proxy and WebSocket feed bind to localhost with fixed ports and do not
+  provide authentication or remote access.
 
-## Running the tests
+## Security
+
+`~/.reedpipe/ReedPipeRootCA.key.pem` can sign certificates for any hostname.
+Never share it. Trusting `ReedPipeRootCA.pem` gives ReedPipe permission to
+intercept HTTPS traffic on that client, so remove that trust when it is no
+longer needed.
+
+## Tests
+
+Run the Core model, encoding, formatting, and JSON round-trip tests:
 
 ```bash
 swift test --filter CoreTests
 ```
 
+Validate the traffic script without sending requests:
+
+```bash
+bash -n Scripts/generate-test-traffic.sh
+```
+
+## License
+
+ReedPipe is available under the MIT License. See [LICENSE](LICENSE).
+
 ## Acknowledgements
 
-This project was created during the official [Swift Mentorship Program](https://www.swift.org/mentorship/).
+This project was created during the official
+[Swift Mentorship Program](https://www.swift.org/mentorship/).
