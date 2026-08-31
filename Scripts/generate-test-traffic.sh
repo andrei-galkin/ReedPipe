@@ -8,30 +8,32 @@ readonly connect_timeout="${REEDPIPE_CONNECT_TIMEOUT:-5}"
 readonly request_timeout="${REEDPIPE_REQUEST_TIMEOUT:-20}"
 
 readonly -a http_cases=(
-    "200|http://example.com/"
-    "200|http://example.org/"
-    "200|http://example.net/"
-    "502|http://127.0.0.1:1/reedpipe-expected-connect-failure"
-    "200|http://httpbin.org/get"
-    "200|http://httpbin.org/headers"
-    "204|http://httpbin.org/status/204"
-    "200|http://detectportal.firefox.com/success.txt"
-    "204|http://connectivitycheck.gstatic.com/generate_204"
-    "200|http://www.msftconnecttest.com/connecttest.txt"
+    "200|GET|http://example.com/|"
+    "200|GET|http://example.org/|"
+    "200|GET|http://example.net/|"
+    "502|GET|http://127.0.0.1:1/reedpipe-expected-connect-failure|"
+    '200|POST|http://httpbin.org/post|{"source":"reedpipe","protocol":"http"}'
+    "200|DELETE|http://httpbin.org/delete|"
+    "204|GET|http://httpbin.org/status/204|"
+    "200|GET|http://detectportal.firefox.com/success.txt|"
+    "204|GET|http://connectivitycheck.gstatic.com/generate_204|"
+    "200|GET|http://www.msftconnecttest.com/connecttest.txt|"
 )
 
 readonly -a https_cases=(
-    "200|https://example.com/"
-    "200|https://example.org/"
-    "200|https://example.net/"
-    "200|https://httpbin.org/get"
-    "200|https://httpbin.org/headers"
-    "503|https://httpbin.org/status/503"
-    "200|https://postman-echo.com/get"
-    "200|https://www.swift.org/"
-    "200|https://api.github.com/zen"
-    "200|https://www.cloudflare.com/cdn-cgi/trace"
+    "200|GET|https://example.com/|"
+    "200|GET|https://example.org/|"
+    "200|GET|https://example.net/|"
+    '200|POST|https://postman-echo.com/post|{"source":"reedpipe","protocol":"https"}'
+    "200|DELETE|https://postman-echo.com/delete|"
+    "503|GET|https://httpbin.org/status/503|"
+    "200|GET|https://postman-echo.com/get|"
+    "200|GET|https://www.swift.org/|"
+    "200|GET|https://api.github.com/zen|"
+    "200|GET|https://www.cloudflare.com/cdn-cgi/trace|"
 )
+
+readonly total_requests=$((${#http_cases[@]} + ${#https_cases[@]}))
 
 if ! command -v curl >/dev/null 2>&1; then
     echo "error: curl is not installed" >&2
@@ -51,8 +53,10 @@ failed_requests=0
 
 run_request() {
     local -r protocol="$1"
-    local -r url="$2"
-    local -r expected_status="$3"
+    local -r method="$2"
+    local -r url="$3"
+    local -r expected_status="$4"
+    local -r request_body="$5"
     local -a arguments=(
         --silent
         --show-error
@@ -62,6 +66,7 @@ run_request() {
         --connect-timeout "${connect_timeout}"
         --max-time "${request_timeout}"
         --proxy "${proxy_url}"
+        --request "${method}"
         --write-out "%{http_code}|connect=%{time_connect}s tls=%{time_appconnect}s total=%{time_total}s"
     )
 
@@ -69,8 +74,20 @@ run_request() {
         arguments+=(--cacert "${ca_certificate}")
     fi
 
+    if [[ -n "${request_body}" ]]; then
+        arguments+=(
+            --header "Content-Type: application/json"
+            --data-raw "${request_body}"
+        )
+    fi
+
     ((request_index += 1))
-    printf '\n[%02d/20] %s %s\n' "${request_index}" "${protocol}" "${url}"
+    printf '\n[%02d/%02d] %s %s %s\n' \
+        "${request_index}" \
+        "${total_requests}" \
+        "${protocol}" \
+        "${method}" \
+        "${url}"
 
     local result
     if result="$(curl "${arguments[@]}" "${url}")"; then
@@ -101,19 +118,20 @@ echo "Proxy: ${proxy_url}"
 echo "CA:    ${ca_certificate}"
 
 for test_case in "${http_cases[@]}"; do
-    IFS='|' read -r expected_status url <<<"${test_case}"
-    run_request "HTTP" "${url}" "${expected_status}"
+    IFS='|' read -r expected_status method url request_body <<<"${test_case}"
+    run_request "HTTP" "${method}" "${url}" "${expected_status}" "${request_body}"
 done
 
 for test_case in "${https_cases[@]}"; do
-    IFS='|' read -r expected_status url <<<"${test_case}"
-    run_request "HTTPS" "${url}" "${expected_status}"
+    IFS='|' read -r expected_status method url request_body <<<"${test_case}"
+    run_request "HTTPS" "${method}" "${url}" "${expected_status}" "${request_body}"
 done
 
-printf '\nFinished: %d passed, %d expected error responses, %d unexpected failures, 20 total.\n' \
+printf '\nFinished: %d passed, %d expected error responses, %d unexpected failures, %d total.\n' \
     "${successful_requests}" \
     "${expected_error_responses}" \
-    "${failed_requests}"
+    "${failed_requests}" \
+    "${total_requests}"
 
 if ((failed_requests > 0)); then
     exit 1

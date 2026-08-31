@@ -141,9 +141,9 @@ curl -x http://127.0.0.1:8080 http://neverssl.com
 curl -x http://127.0.0.1:8080 --cacert ~/.reedpipe/ReedPipeRootCA.pem https://neverssl.com
 ```
 
-To generate 20 monitored requests (10 HTTP and 10 HTTPS) with timeouts, one
-intentional upstream connection failure, one intentional HTTP 503 response,
-and a summary, run:
+To generate 20 monitored GET, POST, and DELETE requests (10 HTTP and 10 HTTPS)
+with JSON request bodies, timeouts, one intentional upstream connection
+failure, one intentional HTTP 503 response, and a summary, run:
 
 ```bash
 ./Scripts/generate-test-traffic.sh
